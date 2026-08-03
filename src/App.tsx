@@ -302,12 +302,16 @@ export default function App() {
 
   // Poll approval status (called by WaitingScreen automatically every 60s)
   const handleCheckStatus = async (): Promise<Employee | null> => {
-    if (!currentEmployee || !isOnline) return currentEmployee;
+    if (!currentEmployee) return currentEmployee;
+
+    console.log('[CheckStatus API Call] Requesting status for deviceId:', currentEmployee.deviceId);
 
     try {
       const res = await fetch(`/api/check-status?deviceId=${encodeURIComponent(currentEmployee.deviceId)}`);
+      console.log('[CheckStatus API Call] Response status:', res.status);
       if (res.ok) {
         const data = await res.json();
+        console.log('[CheckStatus API Call] Response data:', data);
         if (data.success && data.employee) {
           const updatedEmp = data.employee as Employee;
           await saveLocalEmployee(updatedEmp);
@@ -327,8 +331,9 @@ export default function App() {
           return null;
         }
       }
-    } catch (e) {
-      console.error('Check status error:', e);
+    } catch (e: any) {
+      console.error('[CheckStatus API Call] Fetch error:', e);
+      throw new Error('Server unavailable.');
     }
     return currentEmployee;
   };

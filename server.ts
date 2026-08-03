@@ -45,40 +45,51 @@ import {
 
 export const app = express();
 
-async function startServer() {
-  const PORT = 3000;
+// Middlewares
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // Middlewares
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// CORS Headers for Vercel and cross-origin deployments
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
-  // CORS Headers for Vercel and cross-origin deployments
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
-    }
-    next();
-  });
+// Lazy Bootstrap for Firebase
+let bootstrapDone = false;
+let bootstrapPromise: Promise<void> | null = null;
 
-  // Ensure Firebase Admin Auth is active before handling API calls
-  app.use('/api', async (req, res, next) => {
-    try {
-      await ensureAdminAuth();
-    } catch (err) {
-      console.error('ensureAdminAuth middleware error:', err);
-    }
-    next();
-  });
+async function ensureBootstrapped() {
+  if (bootstrapDone) return;
+  if (!bootstrapPromise) {
+    bootstrapPromise = (async () => {
+      try {
+        await ensureAdminAuth();
+        await bootstrapFirebase();
+        bootstrapDone = true;
+      } catch (err) {
+        console.error('[Firebase Bootstrap Error]:', err);
+      }
+    })();
+  }
+  await bootstrapPromise;
+}
 
-  // Bootstrap collections and users
-  await bootstrapFirebase();
+// Request logger & Firebase Auth initializer
+app.use('/api', async (req, res, next) => {
+  console.log(`[Backend API Request] ${req.method} ${req.url}`);
+  await ensureBootstrapped();
+  next();
+});
 
-  // -----------------------------------------------------------------
-  // API ENDPOINTS
-  // -----------------------------------------------------------------
+// -----------------------------------------------------------------
+// API ENDPOINTS
+// -----------------------------------------------------------------
 
   // Health check
   app.get('/api/health', (req, res) => {
@@ -764,24 +775,29 @@ async function startServer() {
     }
   });
 
-  // Vite static file server middleware logic
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa'
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+  // Vite static file server middleware logic / Standalone server setup
+  async function initStandaloneServer() {
+    const PORT = 3000;
+
+    if (process.env.NODE_ENV !== 'production') {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa'
+      });
+      app.use(vite.middlewares);
+    } else if (!process.env.VERCEL) {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
+
+    if (!process.env.VERCEL) {
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`EXFIN OMS Enterprise Server running on port ${PORT}`);
+      });
+    }
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`EXFIN OMS Enterprise Server running on port ${PORT}`);
-  });
-}
-
-startServer();
+  initStandaloneServer();

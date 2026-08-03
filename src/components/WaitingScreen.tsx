@@ -31,10 +31,6 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
     let countdownInterval: NodeJS.Timeout;
 
     const performCheck = async () => {
-      if (!isOnline || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-        setStatusError('You are offline. Your registration will be submitted automatically when internet returns.');
-        return;
-      }
       setIsChecking(true);
       setStatusError(null);
       try {
@@ -43,7 +39,8 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
         if (updated && (updated.status === 'Approved' || updated.status?.toUpperCase() === 'APPROVED')) {
           onApproved(updated);
         }
-      } catch (e) {
+      } catch (e: any) {
+        console.error('[WaitingScreen] Status check error:', e);
         setStatusError('Server unavailable.');
       } finally {
         setIsChecking(false);
@@ -68,10 +65,6 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
   }, [onCheckStatus, onApproved, isOnline]);
 
   const handleManualCheck = async () => {
-    if (!isOnline || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-      setStatusError('You are offline. Your registration will be submitted automatically when internet returns.');
-      return;
-    }
     setIsChecking(true);
     setStatusError(null);
     try {
@@ -80,7 +73,8 @@ export const WaitingScreen: React.FC<WaitingScreenProps> = ({
       if (updated && (updated.status === 'Approved' || updated.status?.toUpperCase() === 'APPROVED')) {
         onApproved(updated);
       }
-    } catch (e) {
+    } catch (e: any) {
+      console.error('[WaitingScreen] Manual check error:', e);
       setStatusError('Server unavailable.');
     } finally {
       setIsChecking(false);
