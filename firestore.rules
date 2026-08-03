@@ -20,32 +20,54 @@ service cloud.firestore {
       return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.email.endsWith('@exfin.com'));
     }
 
+    function userExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
     function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+      return userExists(userId) ? get(/databases/$(database)/documents/users/$(userId)).data : {};
     }
 
     function getRole(userId) {
-      return getUserData(userId).role;
+      return userExists(userId) && ('role' in get(/databases/$(database)/documents/users/$(userId)).data)
+        ? get(/databases/$(database)/documents/users/$(userId)).data.role
+        : '';
+    }
+
+    function getEmployeeId(userId) {
+      return userExists(userId) && ('employeeId' in get(/databases/$(database)/documents/users/$(userId)).data)
+        ? get(/databases/$(database)/documents/users/$(userId)).data.employeeId
+        : '';
     }
 
     function isMasterAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'sanjivsinha2010@gmail.com' ||
+        request.auth.uid == 'g7NoFi86xuRJsYxDIuoctSDarjr2' ||
+        (request.auth.token != null && 'email' in request.auth.token && request.auth.token.email == 'sanjivsinha2010@gmail.com') ||
         getRole(request.auth.uid) == 'Master Admin' || 
         getRole(request.auth.uid) == 'MASTER_ADMIN'
       );
     }
 
     function isAdmin() {
-      return isSignedIn() && (getRole(request.auth.uid) == 'Admin' || getRole(request.auth.uid) == 'Master Admin' || getRole(request.auth.uid) == 'MASTER_ADMIN');
+      return isSignedIn() && (
+        isMasterAdmin() ||
+        getRole(request.auth.uid) == 'Admin'
+      );
     }
 
     function isHR() {
-      return isSignedIn() && (getRole(request.auth.uid) == 'HR' || getRole(request.auth.uid) == 'Master Admin' || getRole(request.auth.uid) == 'MASTER_ADMIN');
+      return isSignedIn() && (
+        isMasterAdmin() ||
+        getRole(request.auth.uid) == 'HR'
+      );
     }
 
     function isTeamLeader() {
-      return isSignedIn() && (getRole(request.auth.uid) == 'Team Leader' || getRole(request.auth.uid) == 'Master Admin' || getRole(request.auth.uid) == 'MASTER_ADMIN');
+      return isSignedIn() && (
+        isMasterAdmin() ||
+        getRole(request.auth.uid) == 'Team Leader'
+      );
     }
 
     function isValidId(id) {
@@ -102,11 +124,11 @@ service cloud.firestore {
     // =================================================================
 
     // USERS (Auth base)
-    match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isHR() || isMasterAdmin());
-      allow create: if (isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && incoming().role == 'Employee') || isMasterAdmin();
+    match /users/{document=**} {
+      allow read: if isSignedIn() && (request.auth.uid == document || isAdmin() || isHR() || isMasterAdmin());
+      allow create: if (isSignedIn() && request.auth.uid == document && isValidUser(incoming()) && incoming().role == 'Employee') || isMasterAdmin();
       allow update: if isSignedIn() && (
-        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['pin', 'name', 'email', 'uid'])) ||
+        (request.auth.uid == document && incoming().diff(existing()).affectedKeys().hasOnly(['pin', 'name', 'email', 'uid'])) ||
         isAdmin() ||
         isMasterAdmin()
       );
@@ -114,7 +136,7 @@ service cloud.firestore {
     }
 
     // EMPLOYEES
-    match /employees/{deviceId} {
+    match /employees/{document=**} {
       allow read: if true; // Public access for device identification checks
       allow create: if true; // Public registration submission
       allow update: if isHR() || isAdmin() || isMasterAdmin() || 
@@ -143,11 +165,11 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         isHR() || isAdmin() || isMasterAdmin() ||
         (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-        existing().employeeId == getUserData(request.auth.uid).employeeId
+        (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid))
       );
       allow update: if isHR() || isAdmin() || isMasterAdmin() ||
                       (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-                      (existing().employeeId == getUserData(request.auth.uid).employeeId && incoming().status == 'Checked Out');
+                      (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid) && incoming().status == 'Checked Out');
       allow delete: if isAdmin() || isMasterAdmin();
     }
 
@@ -157,13 +179,13 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         isHR() || isAdmin() || isMasterAdmin() ||
         (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-        existing().employeeId == getUserData(request.auth.uid).employeeId
+        (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid))
       );
       allow update: if isHR() || isAdmin() || isMasterAdmin() ||
                       (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-                      (existing().employeeId == getUserData(request.auth.uid).employeeId && existing().status == 'Pending' && incoming().diff(existing()).affectedKeys().hasOnly(['category', 'amount', 'description', 'attachmentUrl', 'remarks']));
+                      (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid) && existing().status == 'Pending' && incoming().diff(existing()).affectedKeys().hasOnly(['category', 'amount', 'description', 'attachmentUrl', 'remarks']));
       allow delete: if isAdmin() || isMasterAdmin() ||
-                      (existing().employeeId == getUserData(request.auth.uid).employeeId && existing().status == 'Pending');
+                      (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid) && existing().status == 'Pending');
     }
 
     // LEAVE REQUESTS
@@ -172,49 +194,49 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         isHR() || isAdmin() || isMasterAdmin() ||
         (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-        existing().employeeId == getUserData(request.auth.uid).employeeId
+        (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid))
       );
       allow update: if isHR() || isAdmin() || isMasterAdmin() ||
                       (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-                      (existing().employeeId == getUserData(request.auth.uid).employeeId && incoming().status == 'Cancelled');
+                      (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid) && incoming().status == 'Cancelled');
       allow delete: if isAdmin() || isMasterAdmin();
     }
 
     // SYSTEM NOTIFICATIONS
-    match /notifications/{id} {
+    match /notifications/{document=**} {
       allow read: if true;
       allow write: if isHR() || isAdmin() || isMasterAdmin();
     }
 
     // GEOFENCE PARAMETERS & ACTIVE SHAPES
-    match /geofence/{id} {
+    match /geofence/{document=**} {
       allow read: if true;
       allow write: if isAdmin() || isMasterAdmin();
     }
 
     // COMPANY SETTINGS & GLOBAL CONFIGURATION
-    match /appSettings/{key} {
+    match /appSettings/{document=**} {
       allow read: if true;
       allow write: if isAdmin() || isMasterAdmin();
     }
 
-    match /companySettings/{key} {
+    match /companySettings/{document=**} {
       allow read: if true;
       allow write: if isAdmin() || isMasterAdmin();
     }
 
-    match /holidays/{holidayId} {
+    match /holidays/{document=**} {
       allow read: if true;
       allow write: if isAdmin() || isMasterAdmin() || isHR();
     }
 
-    match /leaveBalances/{employeeId} {
+    match /leaveBalances/{document=**} {
       allow read: if true;
       allow write: if isHR() || isAdmin() || isMasterAdmin();
     }
 
     // SECURITY AUDIT LOGS
-    match /auditLogs/{logId} {
+    match /auditLogs/{document=**} {
       allow create: if true;
       allow read: if isHR() || isAdmin() || isMasterAdmin();
       allow write: if isMasterAdmin() || isAdmin();

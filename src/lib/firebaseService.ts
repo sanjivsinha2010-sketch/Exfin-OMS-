@@ -562,6 +562,28 @@ export async function deleteHoliday(id: string): Promise<void> {
 let isAuthInitialized = false;
 let systemSettingsCache: Record<string, string> = {};
 
+export async function ensureAdminAuth() {
+  if (!auth.currentUser) {
+    try {
+      await signInWithEmailAndPassword(auth, 'sanjivsinha2010@gmail.com', 'Admin@123456');
+    } catch (authErr: any) {
+      if (
+        authErr.code === 'auth/user-not-found' || 
+        authErr.code === 'auth/invalid-credential' || 
+        authErr.code === 'auth/wrong-password'
+      ) {
+        try {
+          await createUserWithEmailAndPassword(auth, 'sanjivsinha2010@gmail.com', 'Admin@123456');
+        } catch (createErr) {
+          console.error('Failed to create admin user during auth check:', createErr);
+        }
+      } else {
+        console.error('Failed to sign in admin user:', authErr);
+      }
+    }
+  }
+}
+
 const authReadyPromise = new Promise<void>((resolve) => {
   const unsubscribe = onAuthStateChanged(auth, async (user) => {
     isAuthInitialized = true;
@@ -672,6 +694,7 @@ export async function getSystemSettingsList(): Promise<any[]> {
 
 export async function bootstrapFirebase() {
   await authReadyPromise;
+  await ensureAdminAuth();
   
   try {
     console.log('Checking if Firebase bootstrap is required...');

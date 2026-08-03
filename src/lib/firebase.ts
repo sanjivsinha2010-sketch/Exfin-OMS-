@@ -1,7 +1,10 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, setLogLevel } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+
+// Suppress internal Firestore gRPC idle stream log messages
+setLogLevel('error');
 
 // Firebase Client Configuration
 export const firebaseConfig = {
@@ -14,8 +17,9 @@ export const firebaseConfig = {
 };
 
 // Initialize Firebase
+export const DATABASE_ID = 'ai-studio-exfinomsenterpri-2566ee09-d700-499c-ba8e-eeb3e6e5c9ce';
 export const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(firebaseApp);
+export const db = getFirestore(firebaseApp, DATABASE_ID);
 export const auth = getAuth(firebaseApp);
 export const storage = getStorage(firebaseApp);
 

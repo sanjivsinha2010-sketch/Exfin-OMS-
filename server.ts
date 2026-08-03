@@ -6,6 +6,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from './src/lib/firebase';
 import {
   bootstrapFirebase,
+  ensureAdminAuth,
   getGeofenceSettings,
   saveGeofenceSettings,
   rollbackGeofenceSettings,
@@ -249,9 +250,7 @@ async function startServer() {
       const { pin, deviceId, browser, isRecovery, masterPin, newPin } = req.body;
 
       // 1. Ensure Firebase Auth user (auth.currentUser) exists BEFORE any Firestore read
-      if (!auth.currentUser) {
-        await signInWithEmailAndPassword(auth, 'sanjivsinha2010@gmail.com', 'Admin@123456');
-      }
+      await ensureAdminAuth();
 
       // 2. First Firestore query after authentication: appSettings/ADMIN_PIN
       const adminPinSnap = await getDoc(doc(db, 'appSettings', 'ADMIN_PIN'));
@@ -307,15 +306,16 @@ async function startServer() {
       // Check trusted device settings
       const trustedDeviceId = await getSystemSetting('TRUSTED_ADMIN_DEVICE_ID', '');
 
-      if (trustedDeviceId && deviceId !== trustedDeviceId) {
-        return res.json({ success: false, unauthorizedDevice: true, error: 'Device is not authorized for administrator access.' });
-      }
-
-      // First setup
-      if (!trustedDeviceId && (pin === validAdminPin || pin === '123456')) {
-        await setSystemSetting('TRUSTED_ADMIN_DEVICE_ID', deviceId);
+      if (!trustedDeviceId) {
+        await setDoc(doc(db, 'appSettings', 'TRUSTED_ADMIN_DEVICE_ID'), {
+          key: 'TRUSTED_ADMIN_DEVICE_ID',
+          value: deviceId,
+          updatedAt: new Date().toISOString()
+        });
         await setSystemSetting('TRUSTED_ADMIN_BROWSER', browser);
         await setSystemSetting('TRUSTED_ADMIN_REGDATE', new Date().toISOString());
+      } else if (deviceId !== trustedDeviceId) {
+        return res.json({ success: false, unauthorizedDevice: true, error: 'Device is not authorized for administrator access.' });
       }
 
       await setSystemSetting('TRUSTED_ADMIN_LASTLOGIN', new Date().toISOString());
@@ -325,6 +325,7 @@ async function startServer() {
 
       return res.json({ 
         success: true, 
+        authenticated: true,
         role: role,
         email: adminEmail,
         password: adminPassword

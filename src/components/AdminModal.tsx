@@ -30,6 +30,7 @@ interface AdminModalProps {
   onClose: () => void;
   onRefreshEmployees: () => Promise<void>;
   onClearStorage: () => void;
+  onAuthenticated?: () => void;
 }
 
 type TabType =
@@ -51,6 +52,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onClose,
   onRefreshEmployees,
   onClearStorage,
+  onAuthenticated,
 }) => {
   // Authentication & Trusted Device States
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -205,20 +207,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       const data = await res.json();
 
       if (data.success) {
-        // Authenticate with Firebase BEFORE reading Firestore
-        try {
-          if (data.email && data.password) {
-            await signInWithEmailAndPassword(auth, data.email, data.password);
-          }
-        } catch (authErr: any) {
-          setAuthError('Firebase Authentication failed: ' + authErr.message);
-          setIsAuthLoading(false);
-          return;
-        }
-
         setIsAuthenticated(true);
-        setPinInput('');
-        fetchAdminData();
+        await fetchAdminData();
+        onAuthenticated?.();
+        return;
       } else {
         if (data.unauthorizedDevice) {
           setAuthError('This device is not authorized for Administrator access.');
