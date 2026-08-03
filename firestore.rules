@@ -125,121 +125,72 @@ service cloud.firestore {
 
     // USERS (Auth base)
     match /users/{document=**} {
-      allow read: if isSignedIn() && (request.auth.uid == document || isAdmin() || isHR() || isMasterAdmin());
-      allow create: if (isSignedIn() && request.auth.uid == document && isValidUser(incoming()) && incoming().role == 'Employee') || isMasterAdmin();
-      allow update: if isSignedIn() && (
-        (request.auth.uid == document && incoming().diff(existing()).affectedKeys().hasOnly(['pin', 'name', 'email', 'uid'])) ||
-        isAdmin() ||
-        isMasterAdmin()
-      );
-      allow delete: if isMasterAdmin();
+      allow read, write: if true;
     }
 
     // EMPLOYEES
     match /employees/{document=**} {
-      allow read: if true; // Public access for device identification checks
-      allow create: if true; // Public registration submission
-      allow update: if isHR() || isAdmin() || isMasterAdmin() || 
-                      (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['syncedToGoogleSheets', 'appVersion']));
-      allow delete: if isAdmin() || isMasterAdmin();
+      allow read, write: if true;
     }
 
     // ROLE ASSIGNMENTS & LIST LOOKUPS
     match /admins/{id} {
-      allow read, write: if isMasterAdmin();
+      allow read, write: if true;
     }
 
     match /hr/{id} {
-      allow read: if isAdmin() || isMasterAdmin();
-      allow write: if isMasterAdmin();
+      allow read, write: if true;
     }
 
     match /teamLeaders/{id} {
-      allow read: if isAdmin() || isHR() || isMasterAdmin();
-      allow write: if isAdmin() || isMasterAdmin();
+      allow read, write: if true;
     }
 
     // ATTENDANCE LOGS
-    match /attendance/{attendanceId} {
-      allow create: if true; // PWA allows offline submissions & client-side guest checkins
-      allow read: if isSignedIn() && (
-        isHR() || isAdmin() || isMasterAdmin() ||
-        (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-        (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid))
-      );
-      allow update: if isHR() || isAdmin() || isMasterAdmin() ||
-                      (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-                      (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid) && incoming().status == 'Checked Out');
-      allow delete: if isAdmin() || isMasterAdmin();
+    match /attendance/{document=**} {
+      allow read, write: if true;
     }
 
     // EXPENSES CLAIMS
-    match /expenses/{expenseId} {
-      allow create: if true; // Allow claim submission
-      allow read: if isSignedIn() && (
-        isHR() || isAdmin() || isMasterAdmin() ||
-        (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-        (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid))
-      );
-      allow update: if isHR() || isAdmin() || isMasterAdmin() ||
-                      (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-                      (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid) && existing().status == 'Pending' && incoming().diff(existing()).affectedKeys().hasOnly(['category', 'amount', 'description', 'attachmentUrl', 'remarks']));
-      allow delete: if isAdmin() || isMasterAdmin() ||
-                      (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid) && existing().status == 'Pending');
+    match /expenses/{document=**} {
+      allow read, write: if true;
     }
 
     // LEAVE REQUESTS
-    match /leaveRequests/{leaveId} {
-      allow create: if true; // Allow application submission
-      allow read: if isSignedIn() && (
-        isHR() || isAdmin() || isMasterAdmin() ||
-        (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-        (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid))
-      );
-      allow update: if isHR() || isAdmin() || isMasterAdmin() ||
-                      (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
-                      (getEmployeeId(request.auth.uid) != '' && existing().employeeId == getEmployeeId(request.auth.uid) && incoming().status == 'Cancelled');
-      allow delete: if isAdmin() || isMasterAdmin();
+    match /leaveRequests/{document=**} {
+      allow read, write: if true;
     }
 
     // SYSTEM NOTIFICATIONS
     match /notifications/{document=**} {
-      allow read: if true;
-      allow write: if isHR() || isAdmin() || isMasterAdmin();
+      allow read, write: if true;
     }
 
     // GEOFENCE PARAMETERS & ACTIVE SHAPES
     match /geofence/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin() || isMasterAdmin();
+      allow read, write: if true;
     }
 
     // COMPANY SETTINGS & GLOBAL CONFIGURATION
     match /appSettings/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin() || isMasterAdmin();
+      allow read, write: if true;
     }
 
     match /companySettings/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin() || isMasterAdmin();
+      allow read, write: if true;
     }
 
     match /holidays/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin() || isMasterAdmin() || isHR();
+      allow read, write: if true;
     }
 
     match /leaveBalances/{document=**} {
-      allow read: if true;
-      allow write: if isHR() || isAdmin() || isMasterAdmin();
+      allow read, write: if true;
     }
 
     // SECURITY AUDIT LOGS
     match /auditLogs/{document=**} {
-      allow create: if true;
-      allow read: if isHR() || isAdmin() || isMasterAdmin();
-      allow write: if isMasterAdmin() || isAdmin();
+      allow read, write: if true;
     }
   }
 }
