@@ -1,0 +1,201 @@
+{
+  "entities": {
+    "Employee": {
+      "title": "Employee",
+      "description": "Represents an enterprise employee profile registered on a specific device.",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string", "description": "The unique, sequential employee ID." },
+        "employeeName": { "type": "string", "description": "The full name of the employee." },
+        "mobileNumber": { "type": "string", "description": "Mobile contact number." },
+        "deviceId": { "type": "string", "description": "The physical device UUID identifier." },
+        "browserName": { "type": "string", "description": "Browser name detected during registration." },
+        "registrationDate": { "type": "string", "description": "ISO 8601 registration timestamp." },
+        "appVersion": { "type": "string", "description": "The PWA application client version." },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"], "description": "Authorization status." },
+        "approvedAt": { "type": "string", "description": "ISO 8601 approval timestamp." },
+        "rejectionReason": { "type": "string", "description": "Reason for rejection if applicable." },
+        "syncedToGoogleSheets": { "type": "boolean", "description": "Whether synced to offline systems." }
+      },
+      "required": ["employeeId", "employeeName", "mobileNumber", "deviceId", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "System login user mapping to Firebase Auth UID with roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "pin": { "type": "string" },
+        "role": { "type": "string", "enum": ["Master Admin", "Admin", "HR", "Team Leader", "Employee"] },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "pin", "role", "name"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Daily check-in and check-out logs for employees.",
+      "type": "object",
+      "properties": {
+        "attendanceId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "deviceId": { "type": "string" },
+        "attendanceType": { "type": "string", "enum": ["OFFICE", "WFH", "Client Visit"] },
+        "checkInTime": { "type": "string" },
+        "checkOutTime": { "type": "string" },
+        "address": { "type": "string" },
+        "distanceFromOffice": { "type": "string" },
+        "officeName": { "type": "string" },
+        "remarks": { "type": "string" },
+        "status": { "type": "string", "enum": ["Checked In", "Checked Out"] },
+        "createdTime": { "type": "string" }
+      },
+      "required": ["attendanceId", "employeeId", "attendanceType", "status"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Business expense claims submitted by employees.",
+      "type": "object",
+      "properties": {
+        "expenseId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "expenseDate": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "remarks": { "type": "string" },
+        "address": { "type": "string" },
+        "attachmentUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Paid", "Rejected"] },
+        "approvedBy": { "type": "string" },
+        "approvedDate": { "type": "string" },
+        "paidDate": { "type": "string" },
+        "createdTime": { "type": "string" }
+      },
+      "required": ["expenseId", "employeeId", "category", "amount", "status"]
+    },
+    "LeaveRequest": {
+      "title": "LeaveRequest",
+      "description": "Leave requests submitted by employees.",
+      "type": "object",
+      "properties": {
+        "leaveId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "leaveType": { "type": "string" },
+        "fromDate": { "type": "string" },
+        "toDate": { "type": "string" },
+        "isHalfDay": { "type": "boolean" },
+        "totalDays": { "type": "number" },
+        "reason": { "type": "string" },
+        "remarks": { "type": "string" },
+        "attachmentUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Cancelled"] },
+        "approvedBy": { "type": "string" },
+        "approvedDate": { "type": "string" },
+        "createdTime": { "type": "string" }
+      },
+      "required": ["leaveId", "employeeId", "leaveType", "fromDate", "toDate", "status"]
+    },
+    "GeofenceLog": {
+      "title": "GeofenceLog",
+      "description": "Historical log of geofence parameter updates.",
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "officeLat": { "type": "number" },
+        "officeLng": { "type": "number" },
+        "radiusMeters": { "type": "number" },
+        "officeName": { "type": "string" },
+        "officeAddress": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["version", "officeLat", "officeLng", "radiusMeters", "updatedAt"]
+    },
+    "AppSetting": {
+      "title": "AppSetting",
+      "description": "Global enterprise system settings and feature configurations.",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["key", "value"]
+    },
+    "Holiday": {
+      "title": "Holiday",
+      "description": "Official company public and festival holidays.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "name": { "type": "string" },
+        "state": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "date", "name", "status"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Security audit log entries for tracking admin and system actions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "adminDeviceId": { "type": "string" },
+        "action": { "type": "string" },
+        "oldValue": { "type": "string" },
+        "newValue": { "type": "string" },
+        "browser": { "type": "string" },
+        "result": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/employees/{deviceId}": {
+      "schema": "Employee",
+      "description": "Master registered devices and linked employee entries."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Role assignments and direct details for login users."
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Checked in and out attendance logs."
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Claims submitted for traveling, fuel, foods, and miscellaneous."
+    },
+    "/leaveRequests/{leaveId}": {
+      "schema": "LeaveRequest",
+      "description": "Casual, sick, and earned leave applications."
+    },
+    "/geofence/{version}": {
+      "schema": "GeofenceLog",
+      "description": "History of geofence spatial adjustments."
+    },
+    "/appSettings/{key}": {
+      "schema": "AppSetting",
+      "description": "Active settings including counters, categories, and controls."
+    },
+    "/holidays/{holidayId}": {
+      "schema": "Holiday",
+      "description": "Official holidays calendar list."
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Chronological audit logs of configuration and status shifts."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Exfin OMS Enterprise PWA",
+  "description": "Enterprise Order Management System PWA v1.0 - Employee Registration and Admin Approval System",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

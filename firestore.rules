@@ -1,0 +1,223 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =================================================================
+    // GLOBAL SAFETY NET & PRIMITIVES
+    // =================================================================
+    
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions for auth and roles
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.email.endsWith('@exfin.com'));
+    }
+
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    function getRole(userId) {
+      return getUserData(userId).role;
+    }
+
+    function isMasterAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'sanjivsinha2010@gmail.com' ||
+        getRole(request.auth.uid) == 'Master Admin' || 
+        getRole(request.auth.uid) == 'MASTER_ADMIN'
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (getRole(request.auth.uid) == 'Admin' || getRole(request.auth.uid) == 'Master Admin' || getRole(request.auth.uid) == 'MASTER_ADMIN');
+    }
+
+    function isHR() {
+      return isSignedIn() && (getRole(request.auth.uid) == 'HR' || getRole(request.auth.uid) == 'Master Admin' || getRole(request.auth.uid) == 'MASTER_ADMIN');
+    }
+
+    function isTeamLeader() {
+      return isSignedIn() && (getRole(request.auth.uid) == 'Team Leader' || getRole(request.auth.uid) == 'Master Admin' || getRole(request.auth.uid) == 'MASTER_ADMIN');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // =================================================================
+    // VALIDATION BLUEPRINTS
+    // =================================================================
+
+    function isValidEmployee(data) {
+      return data.employeeId is string && data.employeeId.size() <= 64 &&
+             data.employeeName is string && data.employeeName.size() <= 128 &&
+             data.mobileNumber is string && data.mobileNumber.size() <= 20 &&
+             data.deviceId is string && data.deviceId.size() <= 128 &&
+             data.status is string && (data.status == 'Pending' || data.status == 'Approved' || data.status == 'Rejected');
+    }
+
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 128 &&
+             data.role is string && (data.role == 'Master Admin' || data.role == 'MASTER_ADMIN' || data.role == 'Admin' || data.role == 'HR' || data.role == 'Team Leader' || data.role == 'Employee');
+    }
+
+    function isValidAttendance(data) {
+      return data.attendanceId is string && data.attendanceId.size() <= 128 &&
+             data.employeeId is string && data.employeeId.size() <= 64 &&
+             data.attendanceType is string && (data.attendanceType == 'OFFICE' || data.attendanceType == 'WFH' || data.attendanceType == 'Client Visit' || data.attendanceType == 'Client Site');
+    }
+
+    function isValidExpense(data) {
+      return data.expenseId is string && data.expenseId.size() <= 128 &&
+             data.employeeId is string && data.employeeId.size() <= 64 &&
+             data.amount is number && data.amount >= 0 &&
+             data.status is string && (data.status == 'Pending' || data.status == 'Approved' || data.status == 'Paid' || data.status == 'Rejected');
+    }
+
+    function isValidLeaveRequest(data) {
+      return data.leaveId is string && data.leaveId.size() <= 128 &&
+             data.employeeId is string && data.employeeId.size() <= 64 &&
+             data.status is string && (data.status == 'Pending' || data.status == 'Approved' || data.status == 'Rejected' || data.status == 'Cancelled');
+    }
+
+    // =================================================================
+    // ROUTING & ACCESS CONTROL MATRIX
+    // =================================================================
+
+    // USERS (Auth base)
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isHR() || isMasterAdmin());
+      allow create: if (isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && incoming().role == 'Employee') || isMasterAdmin();
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['pin', 'name', 'email', 'uid'])) ||
+        isAdmin() ||
+        isMasterAdmin()
+      );
+      allow delete: if isMasterAdmin();
+    }
+
+    // EMPLOYEES
+    match /employees/{deviceId} {
+      allow read: if true; // Public access for device identification checks
+      allow create: if true; // Public registration submission
+      allow update: if isHR() || isAdmin() || isMasterAdmin() || 
+                      (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['syncedToGoogleSheets', 'appVersion']));
+      allow delete: if isAdmin() || isMasterAdmin();
+    }
+
+    // ROLE ASSIGNMENTS & LIST LOOKUPS
+    match /admins/{id} {
+      allow read, write: if isMasterAdmin();
+    }
+
+    match /hr/{id} {
+      allow read: if isAdmin() || isMasterAdmin();
+      allow write: if isMasterAdmin();
+    }
+
+    match /teamLeaders/{id} {
+      allow read: if isAdmin() || isHR() || isMasterAdmin();
+      allow write: if isAdmin() || isMasterAdmin();
+    }
+
+    // ATTENDANCE LOGS
+    match /attendance/{attendanceId} {
+      allow create: if true; // PWA allows offline submissions & client-side guest checkins
+      allow read: if isSignedIn() && (
+        isHR() || isAdmin() || isMasterAdmin() ||
+        (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
+        existing().employeeId == getUserData(request.auth.uid).employeeId
+      );
+      allow update: if isHR() || isAdmin() || isMasterAdmin() ||
+                      (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
+                      (existing().employeeId == getUserData(request.auth.uid).employeeId && incoming().status == 'Checked Out');
+      allow delete: if isAdmin() || isMasterAdmin();
+    }
+
+    // EXPENSES CLAIMS
+    match /expenses/{expenseId} {
+      allow create: if true; // Allow claim submission
+      allow read: if isSignedIn() && (
+        isHR() || isAdmin() || isMasterAdmin() ||
+        (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
+        existing().employeeId == getUserData(request.auth.uid).employeeId
+      );
+      allow update: if isHR() || isAdmin() || isMasterAdmin() ||
+                      (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
+                      (existing().employeeId == getUserData(request.auth.uid).employeeId && existing().status == 'Pending' && incoming().diff(existing()).affectedKeys().hasOnly(['category', 'amount', 'description', 'attachmentUrl', 'remarks']));
+      allow delete: if isAdmin() || isMasterAdmin() ||
+                      (existing().employeeId == getUserData(request.auth.uid).employeeId && existing().status == 'Pending');
+    }
+
+    // LEAVE REQUESTS
+    match /leaveRequests/{leaveId} {
+      allow create: if true; // Allow application submission
+      allow read: if isSignedIn() && (
+        isHR() || isAdmin() || isMasterAdmin() ||
+        (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
+        existing().employeeId == getUserData(request.auth.uid).employeeId
+      );
+      allow update: if isHR() || isAdmin() || isMasterAdmin() ||
+                      (isTeamLeader() && existing().teamLeaderId == request.auth.uid) ||
+                      (existing().employeeId == getUserData(request.auth.uid).employeeId && incoming().status == 'Cancelled');
+      allow delete: if isAdmin() || isMasterAdmin();
+    }
+
+    // SYSTEM NOTIFICATIONS
+    match /notifications/{id} {
+      allow read: if true;
+      allow write: if isHR() || isAdmin() || isMasterAdmin();
+    }
+
+    // GEOFENCE PARAMETERS & ACTIVE SHAPES
+    match /geofence/{id} {
+      allow read: if true;
+      allow write: if isAdmin() || isMasterAdmin();
+    }
+
+    // COMPANY SETTINGS & GLOBAL CONFIGURATION
+    match /appSettings/{key} {
+      allow read: if true;
+      allow write: if isAdmin() || isMasterAdmin();
+    }
+
+    match /companySettings/{key} {
+      allow read: if true;
+      allow write: if isAdmin() || isMasterAdmin();
+    }
+
+    match /holidays/{holidayId} {
+      allow read: if true;
+      allow write: if isAdmin() || isMasterAdmin() || isHR();
+    }
+
+    match /leaveBalances/{employeeId} {
+      allow read: if true;
+      allow write: if isHR() || isAdmin() || isMasterAdmin();
+    }
+
+    // SECURITY AUDIT LOGS
+    match /auditLogs/{logId} {
+      allow create: if true;
+      allow read: if isHR() || isAdmin() || isMasterAdmin();
+      allow write: if isMasterAdmin() || isAdmin();
+    }
+  }
+}
