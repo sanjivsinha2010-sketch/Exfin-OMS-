@@ -801,3 +801,5 @@ app.use('/api', async (req, res, next) => {
   }
 
   initStandaloneServer();
+
+export default app;
