@@ -93,27 +93,19 @@ export const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
       return;
     }
 
-    if (!isOnline || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-      // Allow submitting offline so registration is queued and saved locally
-      try {
-        setIsSubmitting(true);
-        const meta = metadata || collectDeviceMetadata();
-        await onRegisterSubmit(employeeName.trim(), mobileNumber.trim(), meta);
-      } catch (err) {
-        setFormError('You are offline. Your registration will be submitted automatically when internet returns.');
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
     const meta = metadata || collectDeviceMetadata();
+    console.log('[RegistrationScreen] Registering device with details:', {
+      name: employeeName.trim(),
+      mobile: mobileNumber.trim(),
+      deviceId: meta.deviceId
+    });
 
     try {
       setIsSubmitting(true);
       await onRegisterSubmit(employeeName.trim(), mobileNumber.trim(), meta);
       setFormSuccess('Registration successful. Waiting for Admin approval.');
     } catch (err: any) {
+      console.error('[RegistrationScreen] Registration submit error:', err);
       const rawMsg = (err?.message || err?.toString() || '');
       const lowerMsg = rawMsg.toLowerCase();
       if (lowerMsg.includes('already registered') || lowerMsg.includes('already exists')) {

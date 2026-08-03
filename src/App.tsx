@@ -242,11 +242,9 @@ export default function App() {
       timestamp: metadata.registrationDate || new Date().toISOString()
     };
 
-    if (!isOnline || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-      throw new Error('Server unavailable.');
-    }
+    console.log('[RegisterDevice API Call] Endpoint: /api/register');
+    console.log('[RegisterDevice API Call] Payload:', payload);
 
-    // Direct Google Apps Script / Server Backend Registration
     let res;
     try {
       res = await fetch('/api/register', {
@@ -254,7 +252,9 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-    } catch (e) {
+      console.log('[RegisterDevice API Call] Response status:', res?.status, res?.statusText);
+    } catch (e: any) {
+      console.error('[RegisterDevice API Call] Fetch network exception:', e);
       throw new Error('Server unavailable.');
     }
 
@@ -265,7 +265,9 @@ export default function App() {
     let data: any = null;
     try {
       data = await res.json();
-    } catch (e) {
+      console.log('[RegisterDevice API Call] Response data:', data);
+    } catch (e: any) {
+      console.error('[RegisterDevice API Call] JSON parse error:', e);
       throw new Error('Server unavailable.');
     }
 
