@@ -43,13 +43,35 @@ import {
   getOrCreateLeaveBalance
 } from './src/lib/firebaseService';
 
+export const app = express();
+
 async function startServer() {
-  const app = express();
   const PORT = 3000;
 
   // Middlewares
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+  // CORS Headers for Vercel and cross-origin deployments
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
+  // Ensure Firebase Admin Auth is active before handling API calls
+  app.use('/api', async (req, res, next) => {
+    try {
+      await ensureAdminAuth();
+    } catch (err) {
+      console.error('ensureAdminAuth middleware error:', err);
+    }
+    next();
+  });
 
   // Bootstrap collections and users
   await bootstrapFirebase();

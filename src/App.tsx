@@ -262,17 +262,20 @@ export default function App() {
       throw new Error('Server unavailable.');
     }
 
-    let data;
+    let data: any = null;
     try {
       data = await res.json();
     } catch (e) {
       throw new Error('Server unavailable.');
     }
 
-    if (!data.success) {
-      const errMsg = (data.error || data.message || '').toString().toLowerCase();
-      if (errMsg.includes('already registered') || errMsg.includes('already exists')) {
+    if (!data || !data.success) {
+      const errMsg = (data?.error || data?.message || '').toString();
+      const lower = errMsg.toLowerCase();
+      if (lower.includes('already registered') || lower.includes('already exists')) {
         throw new Error('Already registered.');
+      } else if (errMsg) {
+        throw new Error(errMsg);
       } else {
         throw new Error('Registration failed.');
       }

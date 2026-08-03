@@ -114,15 +114,16 @@ export const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
       await onRegisterSubmit(employeeName.trim(), mobileNumber.trim(), meta);
       setFormSuccess('Registration successful. Waiting for Admin approval.');
     } catch (err: any) {
-      const rawMsg = (err?.message || err?.toString() || '').toLowerCase();
-      if (rawMsg.includes('already registered') || rawMsg.includes('already exists')) {
+      const rawMsg = (err?.message || err?.toString() || '');
+      const lowerMsg = rawMsg.toLowerCase();
+      if (lowerMsg.includes('already registered') || lowerMsg.includes('already exists')) {
         setFormError('Already registered.');
-      } else if (rawMsg.includes('server') || rawMsg.includes('unavailable') || rawMsg.includes('fetch') || rawMsg.includes('network') || rawMsg.includes('500') || rawMsg.includes('502') || rawMsg.includes('503')) {
+      } else if (lowerMsg.includes('server') || lowerMsg.includes('unavailable') || lowerMsg.includes('fetch') || lowerMsg.includes('network') || lowerMsg.includes('500') || lowerMsg.includes('502') || lowerMsg.includes('503')) {
         setFormError('Server unavailable.');
-      } else if (rawMsg.includes('internet') || rawMsg.includes('offline')) {
+      } else if (lowerMsg.includes('internet') || lowerMsg.includes('offline')) {
         setFormError('Internet unavailable.');
       } else {
-        setFormError('Registration failed.');
+        setFormError(err?.message || 'Registration failed.');
       }
     } finally {
       setIsSubmitting(false);
